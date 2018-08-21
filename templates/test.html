@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Flask app</title>
+  </head>
+	<body>
+		<div id="content">
+		    <h3>Face Recognition Program:</h3>
+		    <p>
+		    <form action="./test" method="POST" enctype="multipart/form-data">
+		        <label for="file">Image du visage:</label>
+		        <input type="file" name="file"/>
+		        <br/>
+		        <input type="submit" value="Envoyer" onclick="preloader()"/>
+		    </form>
+		    </p>
+	    </div>
+	    <div id="loading"></div>
+	</body>
+</html>
+<style>
+	div#content {
+    	display: block;
+    }
+ 
+	div#loading {
+		display: none;
+		top: 200 px;
+		margin: auto;
+	    position: absolute;
+	    z-index: 1000;
+	    width: 300px;
+	    height: 300px;
+	    background: url({{ url_for('static', filename = 'loading.gif') }}) no-repeat;
+	    cursor: wait;
+	}
+</style>
+<script type="text/javascript">
+    function preloader(){
+        document.getElementById("loading").style.display = "inline-block";
+        document.getElementById("content").style.display = "none";
+    }
+</script>

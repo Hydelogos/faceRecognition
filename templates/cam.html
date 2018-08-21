@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Flask app</title>
+  </head>
+	<body>
+		<div id="content">
+		    <h3>Face Recognition Program:</h3>
+			<p id="reponse"></p>
+		    <video autoplay></video>
+			<canvas style="display:none;"></canvas>
+	    </div>
+	    <div id="loading"></div>
+	</body>
+</html>
+<style>
+	body{
+		margin: 0px;
+	}
+
+	div#content {
+    	display: block;
+    	height: 100vh;
+    	width: 100vh;
+    }
+ 
+	div#loading {
+		display: none;
+		top: 200 px;
+		margin: auto;
+	    position: absolute;
+	    z-index: 1000;
+	    width: 300px;
+	    height: 300px;
+	    background: url({{ url_for('static', filename = 'loading.gif') }}) no-repeat;
+	    cursor: wait;
+	}
+</style>
+<script type="text/javascript">
+	var t = null
+	var isWaiting = false;
+	const screenshotButton = document.querySelector('#screenshot-button');
+	const img = document.querySelector('#content img');
+	const video = document.querySelector('#content video');
+	const texte = document.querySelector('#reponse');
+
+	const canvas = document.createElement('canvas');
+
+	var postFile = function(file){
+		
+		let formdata = new FormData();
+	    formdata.append("image", file);
+		const xhttp = new XMLHttpRequest();
+		xhttp.open("POST", "./webcam", true);
+
+		xhttp.send(formdata);
+
+		xhttp.onreadystatechange = function() {
+			if (this.readyState == 4 && this.status == 200) {
+			    response = JSON.parse(this.response)
+			    if(response.result > 0){
+			    	texte.innerHTML = "Tu es " + response.nom;
+			    	if(response.nom == "inconnu"){
+			    		var nom = prompt("Quel est votre nom?");
+			    		let formdata = new FormData();
+					    formdata.append("file", file);
+					    formdata.append("name", nom);
+						const xhttp = new XMLHttpRequest();
+						xhttp.open("POST", ".", true);
+
+						xhttp.send(formdata);
+
+						xhttp.onreadystatechange = function() {
+							if (this.readyState == 4 && this.status == 200) {
+							    
+							    texte.innerHTML = "Enregistré!";
+							    document.getElementById("loading").style.display = "none";
+							    console.log(this.response);
+							    location.reload();
+							}
+						};
+
+			    	}
+			    } else{
+			    	isWaiting = false;
+			    }
+			}
+			if (this.readyState == 4 && this.status == 400) {
+				isWaiting = false;
+			}
+		};
+	}
+	var screenshot = function() {
+		if(!isWaiting){
+			isWaiting = true;
+			canvas.width = video.videoWidth;
+			canvas.height = video.videoHeight;
+			canvas.getContext('2d').drawImage(video, 0, 0);
+			// Other browsers will fall back to image/png
+			canvas.toBlob(postFile, 'image/jpeg');
+			
+		}
+	};
+
+	const constraints = {
+  		video: true
+	};
+
+	function handleSuccess(stream) {
+	  video.srcObject = stream;
+	}
+
+	function handleError(error) {
+	  alert(error);
+	}
+
+	window.onload = function(){
+		navigator.mediaDevices.getUserMedia(constraints).then(handleSuccess).catch(handleError);
+		t = setInterval(screenshot, 2000);
+	};
+
+	var saveFile = function(file){
+        let formdata = new FormData();
+		formdata.append("file", file);
+	    formdata.append("name", document.getElementById('name').value);
+		const xhttp = new XMLHttpRequest();
+		xhttp.open("POST", ".", true);
+
+		xhttp.send(formdata);
+
+		xhttp.onreadystatechange = function() {
+			if (this.readyState == 4 && this.status == 200) {
+			    
+			    texte.innerHTML = "Enregistré! Recharger la page.";
+			    document.getElementById("loading").style.display = "none";
+			    console.log(this.response);
+			}
+		};
+	}
+	
+    function preloader(){
+        document.getElementById("loading").style.display = "inline-block";
+
+		canvas.width = video.videoWidth;
+		canvas.height = video.videoHeight;
+		canvas.getContext('2d').drawImage(video, 0, 0);
+		// Other browsers will fall back to image/png
+		canvas.toBlob(saveFile, 'image/jpeg');
+	    
+    }
+
+</script>
