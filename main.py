@@ -10,6 +10,10 @@ from PIL import Image
 import psycopg2
 
 from flask import Flask, request, jsonify, render_template, abort
+from flask_socketio import SocketIO, emit
+
+import dlib
+import cv2
 
 
 try:
@@ -30,8 +34,12 @@ if not cur.fetchone()[0]:
 else:
 	cur.close()
 
+tracker = dlib.correlation_tracker()
+started = False
 
 app = Flask(__name__)
+socketio = SocketIO(app)
+
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -118,6 +126,45 @@ def postCam():
 			return jsonify({'result': 1, 'nom': nom})
 		else:
 			return jsonify({'result': 0})
+
+@app.route("/tracker")
+def getTrack():
+	return render_template("track.html")
+
+
+@socketio.on('connect', namespace='/track')
+def connect():
+	emit('okay', {})
+	global started
+	started = False
+
+@socketio.on('stream', namespace='/track')
+def track(message):
+	global started
+	f = Image.open(BytesIO(message['data']))
+	img = cv2.cvtColor(np.array(f), cv2.COLOR_RGB2BGR)
+	if not started:
+		detectedBox = test(img)
+		if detectedBox is not None:
+			tracker.start_track(img, detectedBox)
+			(x,y,xb,yb) = [detectedBox.left(),detectedBox.top(),detectedBox.right(),detectedBox.bottom()]
+			emit('response', {'data': (x, y, xb, yb)})
+			started = True
+	else:
+		tracker.update(img)
+		detectedBox = tracker.get_position()
+		(x,y,xb,yb) = [detectedBox.left(),detectedBox.top(),detectedBox.right(),detectedBox.bottom()]
+		emit('response', {'data': (x, y, xb, yb)})
+
+
+
+def test(file):
+	detector = dlib.simple_object_detector("detector/cup")
+	detectedBoxes = detector(file)
+	for detectedBox in detectedBoxes:
+		print(detectedBox)
+		return detectedBox
+	return None
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

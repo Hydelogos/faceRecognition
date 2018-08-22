@@ -61,7 +61,10 @@
 			    if(response.result > 0){
 			    	texte.innerHTML = "Tu es " + response.nom;
 			    	if(response.nom == "inconnu"){
-			    		var nom = prompt("Quel est votre nom?");
+			    		var nom = null
+			    		while(!nom){
+			    			var nom = prompt("Quel est votre nom?");
+			    		}
 			    		let formdata = new FormData();
 					    formdata.append("file", file);
 					    formdata.append("name", nom);
