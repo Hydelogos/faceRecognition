@@ -20,6 +20,7 @@ Lancement du programme:
 pipenv run python main.py
 ```
 Il faudra renseigner les informations demandées quant au serveur Postgres afin d'y permettre une connexion.
+
 Le programme ecoutera ensuite par défaut sur le port 5000 et il suffira de se rendre sur *localhost:5000* pour acceder au site.
 
 Il y a 4 paths utilisables:
