@@ -15,11 +15,14 @@ from flask_socketio import SocketIO, emit
 import dlib
 import cv2
 
-
+user = input("Postgres User Name:")
+password = input("Postgres Password:")
+domain = input("Postgres Domain Url:")
+port = input("Postgres Port:")
 try:
 	DATABASE_URL = os.environ['DATABASE_URL']
 except:
-	DATABASE_URL = "postgresql://postgres:obscure@localhost:5433"
+	DATABASE_URL = "postgresql://" + user + ":" + password + "@" + domain + ":" + port
 
 conn = psycopg2.connect(DATABASE_URL)
 cur = conn.cursor()
