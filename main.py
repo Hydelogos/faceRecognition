@@ -5,7 +5,7 @@ import Face
 
 from io import BytesIO
 import base64
-from PIL import Image
+from PIL import Image, ImageDraw
 
 import psycopg2
 
@@ -39,6 +39,10 @@ else:
 
 tracker = dlib.correlation_tracker()
 started = False
+mask = Image.new('RGBA', (500, 500), (255, 0, 0, 0))
+mask.save("static/mask.png", "PNG")
+previous = [0, 0]
+grabbing = False
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -159,10 +163,118 @@ def track(message):
 		(x,y,xb,yb) = [detectedBox.left(),detectedBox.top(),detectedBox.right(),detectedBox.bottom()]
 		emit('response', {'data': (x, y, xb, yb)})
 
+@app.route("/draw")
+def getDraw():
+	return render_template("draw.html")
 
+
+@socketio.on('connect', namespace='/drawing')
+def connectDraw():
+	emit('okay', {})
+	global started
+	started = False
+
+@socketio.on('stream', namespace='/drawing')
+def draw(message):
+	global started
+	global mask
+	global previous
+	f = Image.open(BytesIO(message['data']))
+	img = cv2.cvtColor(np.array(f), cv2.COLOR_RGB2BGR)
+	if not started:
+		detectedBox = test(img)
+		if detectedBox is not None:
+			tracker.start_track(img, detectedBox)
+			(x,y,xb,yb) = [detectedBox.left(),detectedBox.top(),detectedBox.right(),detectedBox.bottom()]
+			width = xb - x
+			height = yb - y
+			print((x,y,xb,yb))
+			previous[0] = x + round(width/2)
+			previous[1] = y + round(width/2)
+			emit('response', {})
+			started = True
+	else:
+		tracker.update(img)
+		detectedBox = tracker.get_position()
+		(x,y,xb,yb) = [detectedBox.left(),detectedBox.top(),detectedBox.right(),detectedBox.bottom()]
+		width = xb - x
+		height = yb - y
+		draw = ImageDraw.Draw(mask)
+		draw.line((previous[0], previous[1], x + round(width/2), y + round(height/2)), fill=(255, 0, 0), width=5)
+		previous[0] = x + round(width/2)
+		previous[1] = y + round(height/2)
+		mask.save("static/mask.png", "PNG")
+		print("SAVED!")
+		emit('response', {})
+
+
+
+@app.route("/drag")
+def getDrag():
+	return render_template("dragdrop.html")
+
+
+@socketio.on('connect', namespace='/drag')
+def connectDrag():
+	emit('okay', {})
+	global started
+	started = False
+
+@socketio.on('stream', namespace='/drag')
+def drag(message):
+	global started
+	global grabbing
+	f = Image.open(BytesIO(message['data']))
+	img = cv2.cvtColor(np.array(f), cv2.COLOR_RGB2BGR)
+	if not started:
+		detectedBox = test(img)
+		if detectedBox is not None:
+			print("DETECTED")
+			tracker.start_track(img, detectedBox)
+			(x,y,xb,yb) = [detectedBox.left(),detectedBox.top(),detectedBox.right(),detectedBox.bottom()]
+			width = xb - x
+			height = yb - y
+			emit('response', {"data": [x + round(width/2), y + round(width/2)]})
+			started = True
+	else:
+		
+		if testDrag(img) is not None:
+			grabbing = True
+			emit("grab", {})
+			detectedBox = testDrag(img)
+			tracker.start_track(img, detectedBox)
+			(x,y,xb,yb) = [detectedBox.left(),detectedBox.top(),detectedBox.right(),detectedBox.bottom()]
+			width = xb - x
+			height = yb - y
+			emit('response', {"data": [x + round(width/2), y + round(width/2)]})
+		elif test(img) is not None:
+			grabbing = False
+			emit("release", {})
+			detectedBox = test(img)
+			tracker.start_track(img, test(img))
+			(x,y,xb,yb) = [detectedBox.left(),detectedBox.top(),detectedBox.right(),detectedBox.bottom()]
+			width = xb - x
+			height = yb - y
+			emit('response', {"data": [x + round(width/2), y + round(width/2)]})
+		else:
+			tracker.update(img)
+			print("UPDATED!")
+			detectedBox = tracker.get_position()
+			(x,y,xb,yb) = [detectedBox.left(),detectedBox.top(),detectedBox.right(),detectedBox.bottom()]
+			width = xb - x
+			height = yb - y
+			emit('response', {"data": [x + round(width/2), y + round(width/2)]})
 
 def test(file):
 	detector = dlib.simple_object_detector("detector/cup")
+	detectedBoxes = detector(file)
+	for detectedBox in detectedBoxes:
+		print(detectedBox)
+		return detectedBox
+	return None
+
+def testDrag(file):
+	detector = dlib.simple_object_detector("detector/grab")
 	detectedBoxes = detector(file)
 	for detectedBox in detectedBoxes:
 		print(detectedBox)
